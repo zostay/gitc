@@ -18,11 +18,12 @@ use warnings;
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use App::Gitc::Util qw( git );
+use App::Gitc::Util qw( git project_config );
 use App::Gitc::Config;
 
 my $project = shift;
 my $alias   = shift || '';
-git "clone $gitc_config{repo_base}:$project $alias";
+my $gitc_config = project_config($project);
+git "clone $gitc_config->{repo_base}:$project $alias";
 chdir( $alias || $project );
 git "branch $_ origin/$_" for qw( test stage prod );

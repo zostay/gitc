@@ -423,9 +423,12 @@ Returns a hashref with configuration details about this project.
 =cut
 
 sub project_config {
+    my $name = shift;
+    $name = project_name() unless defined $name;
+
     require App::Gitc::Config;
     my $projects = $App::Gitc::Config::config{projects};
-    my $project_config = $projects->{ project_name() };
+    my $project_config = $projects->{ $name } if defined $name;
     return $project_config if defined $project_config;
     return $projects->{_default};
 }

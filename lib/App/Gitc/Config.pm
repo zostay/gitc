@@ -40,6 +40,7 @@ projects: each top level key is the repo/project name (matches repo name 'gitc s
 =cut
 
 my %default_config = (
+    'repo_base'        => 'git@example',
     'default_its'      => 'eventum',
     'eventum_uri'      => 'https://eventum.example.com',
     'jira_uri'         => 'https://example.atlassian.net/',
@@ -143,14 +144,6 @@ our %config = (
         # TODO this should be pulled from a configuration file
     },
 );
-
-sub import {
-    my $package = caller;
-    our %config;
-    no strict 'refs';
-    *{ $package . '::gitc_config' } = \%config;
-    return;
-}
 
 =head1 AUTHOR
 
