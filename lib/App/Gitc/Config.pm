@@ -2,6 +2,8 @@ package App::Gitc::Config;
 use strict;
 use warnings;
 
+use YAML ();
+
 =head1 Synopsis
 
 Configuration file for gitc
@@ -129,21 +131,105 @@ my %default_config = (
     'open onto' => 'prod',
 );
 
-our %config = (
-    repo_base => 'git@example',
-    projects  => {
+my $config;
 
-        _default => \%default_config,
-
-        'gitc' => {
-            %default_config,
-            'open onto' => 'master',
-        },
-        # CONFIGURE
-        # You must define your project configuration here
-        # TODO this should be pulled from a configuration file
-    },
+my @GITC_CONFIG_SEARCH_PATH = (
+    "/etc/gitc/gitc.config",
+    '$PROJECT/.gitc/gitc.config',
+    "$ENV{USER}/.gitc/gitc.config",
 );
+
+sub load_config {
+    my $project_name = shift;
+
+    # Use the cached config if available
+    return $config->{ $project_name } 
+        if defined $config->{ $project_name };
+
+    # Configuration is not loaded. Load it.
+
+    # Add any custom search paths specified in the environment
+    my @extra_paths;
+    if (defined $ENV{GITC_CONFIG}) {
+
+        # Seems like this should be part of standard perl somewhere...
+        my $path_sep = $^O =~ /^(?:MSWin32|os2|dos)$/ ? ';'
+                     :                                  ':';
+
+        @extra_paths = split /$path_sep/, $ENV{GITC_CONFIG};
+    }
+
+    # Start empty
+    my %local_default_config;
+    my %local_project_config;
+
+    for my $config_path (@GITC_CONFIG_SEARCH_PATH, @extra_paths) {
+
+        # The $PROJECT config can only be read when the current project matches
+        # the project for which we want configuration (i.e., most cases other
+        # than when gitc-setup loads configuration).
+        my $is_project_config = 0;
+        if ($config_path =~ /^\$PROJECT\b/ and $project_name eq App::Gitc::Util::project_name()) {
+            my $project_root = App::Gitc::Util::project_root();
+            $config_path =~ s/^\$PROJECT\b/$project_root/;
+            $is_project_config++;
+        }
+
+        # If the configuration exists, load it and merge
+        if (-f $config_path) {
+            my $this_config = YAML::LoadFile($config_path);
+
+            # _default config in $PROJECT makes no sense at all
+            my $default_config = $this_config->{_default};
+            if ($is_project_config and defined $this_config->{_default}) {
+                warn "Ignoring _default configuration in $config_path.\n";
+                $default_config = {};
+            }
+
+            $default_config = {} unless defined $default_config;
+            
+            # Make sure to let the user know if $PROJECT config is wrong
+            my $project_config = $this_config->{ $project_name };
+            if ($is_project_config and not defined $this_config->{ $project_name }) {
+                warn "Missing $project_name configuration in $config_path.\n";
+                $project_config = {};
+            }
+
+            $project_config = {} unless defined $project_config;
+
+            # Merge defaults together
+            %local_default_config = (
+                %local_default_config,
+                %$default_config,
+            );
+
+            # Merge per-project config together
+            %local_project_config = (
+                %local_project_config,
+                %$project_config,
+            );
+        }
+    }
+
+    # Apply the defaults last of all
+    %local_project_config = (
+        %local_default_config,
+        %local_project_config,
+    );
+
+    # Configuration of last resort...
+    $config->{_default} = \%local_default_config;
+
+    return $config->{ $project_name } = \%local_project_ocnfig;
+}
+
+sub project_config {
+    my $name = shift;
+
+    my $project_config = load_config($name) if defined $name;
+    return $project_config if defined $project_config;
+    return $config->{_default};
+}
 
 =head1 AUTHOR
 

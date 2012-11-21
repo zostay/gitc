@@ -13,6 +13,8 @@ use List::MoreUtils qw( first_index );
 
 use Class::MOP;
 
+use App::Gitc::Config;
+
 BEGIN {
     our @EXPORT = qw(
         current_branch
@@ -422,15 +424,11 @@ Returns a hashref with configuration details about this project.
 
 =cut
 
-sub project_config {
+sub project_config { 
     my $name = shift;
     $name = project_name() unless defined $name;
 
-    require App::Gitc::Config;
-    my $projects = $App::Gitc::Config::config{projects};
-    my $project_config = $projects->{ $name } if defined $name;
-    return $project_config if defined $project_config;
-    return $projects->{_default};
+    return App::Gitc::Config::project_config($name) 
 }
 
 =head1 Optionally Exported Subroutines
